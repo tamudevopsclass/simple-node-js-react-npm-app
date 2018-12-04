@@ -1,29 +1,36 @@
 pipeline {
     agent {
         docker {
-            image 'node:6-alpine'
-            args '-p 3000:3000'
+            image 'node:7-alpine'
         }
-    }
-    environment {
-        CI = 'true'
     }
     stages {
-        stage('Build') {
+        stage('Build') { 
             steps {
                 sh 'npm install'
+                sh 'docker stop flask'
+                sh 'docker swarm leave -f'
+                sh 'docker build -t macalahthomas/tcmg476 .'
+                sh 'docker swarm init'
+                sh 'docker stack deploy -c docker-compose.yml flask'
             }
         }
-        stage('Test') {
-            steps {
-                sh './jenkins/scripts/test.sh'
+        stage('Test'){
+            agent{
+                docker{
+                    image 'python:3-alpine'
+                }
+            }
+            steps{
+                sh 'python3 -m pip install requests'
+                sh 'python3 ./test.py'
+                sh 'python3 ./commandlinetest.py'
             }
         }
-        stage('Deliver') {
-            steps {
-                sh './jenkins/scripts/deliver.sh'
-                input message: 'Finished using the web site? (Click "Proceed" to continue)'
-                sh './jenkins/scripts/kill.sh'
+        stage('Deploy'){
+            steps{
+                sh 'docker login -u macalahthomas -p Krev@pple1'
+                sh 'docker push macalahthomas/tcmg476'
             }
         }
     }
